@@ -6,7 +6,7 @@ services:
     build:
       context: .           # Контекст сборки - текущая директория (где docker-compose.yml и Dockerfile)
       dockerfile: ./Dockerfile # Путь к вашему Dockerfile
-    image: custom-odoo:18.0 # Имя, которое будет присвоено вашему собранному образу
+    image: radiksen-odoo:18.0 # Имя, которое будет присвоено вашему собранному образу
     container_name: odoo_web
     depends_on:
       - db
