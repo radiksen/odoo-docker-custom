@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  web:
+    # Указываем Docker Compose, что нужно собрать образ из Dockerfile
+    build:
+      context: .           # Контекст сборки - текущая директория (где docker-compose.yml и Dockerfile)
+      dockerfile: ./Dockerfile # Путь к вашему Dockerfile
+    image: custom-odoo:18.0 # Имя, которое будет присвоено вашему собранному образу
+    container_name: odoo_web
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"       # Внутренний порт Odoo (может быть полезен для прямого доступа/отладки)
+    volumes:
+      - odoo-web-data:/var/lib/odoo # Постоянное хранение данных Odoo (файлы,attachments)
+      # Так как odoo.conf и custom_addons уже скопированы в образ через Dockerfile,
+      # монтировать их здесь обычно не нужно, если вы не хотите, чтобы они перезаписывались.
+      # Если вы хотите изменять odoo.conf без пересборки образа, раскомментируйте:
+      # - ./config/odoo.conf:/etc/odoo/odoo.conf
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=admin # <--- ВАЖНО: Совпадает с db_password в odoo.conf
+    restart: always
+
+  db:
+    image: postgres:16
+    container_name: odoo_db
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=admin # <--- ВАЖНО: Совпадает с db_password в odoo.conf
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data # Постоянное хранение данных PostgreSQL
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: odoo_nginx
+    ports:
+      - "80:80"             # Для HTTP-трафика (для Certbot и перенаправления на HTTPS)
+      - "443:443"           # Для HTTPS-трафика
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf # Конфигурация Nginx
+      - certbot-web:/var/www/certbot # Для проверки Certbot
+      - certbot-certs:/etc/letsencrypt # Для хранения сертификатов Let's Encrypt
+    depends_on:
+      - web
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    container_name: odoo_certbot
+    volumes:
+      - certbot-web:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    # Этот entrypoint автоматически обновляет сертификаты.
+    # Для ПЕРВОГО получения сертификатов, временно используйте команду ниже.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $!; done;'"
+    # --- Для ПЕРВОГО получения сертификата, РАСКОММЕНТИРУЙТЕ эту строку и измените параметры: ---
+    # entrypoint: "certbot certonly --webroot -w /var/www/certbot --email your_email@example.com --agree-tos --no-eff-email -d your_domain.com --force-renewal"
+    # Обязательно замените your_email@example.com и your_domain.com на ваши данные.
+    # После успешного получения, ЗАКРОЙТЕ эту строку и вернитесь к автоматическому обновлению.
+    restart: unless-stopped
+
+volumes:
+  odoo-web-data: # Именованные тома для постоянного хранения данных
+  odoo-db-data:
+  certbot-web:
+  certbot-certs:
