@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: radiksen-odoo:18.0
+    container_name: odoo_web
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=${ODOO_DB_PASSWORD} # Используем переменную окружения
+    restart: always
+
+  db:
+    image: postgres:16
+    container_name: odoo_db
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=${ODOO_DB_PASSWORD} # Используем переменную окружения
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: odoo_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # ВАЖНО: Сюда мы пока не передаем переменные, потому что они будут в default.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - certbot-web:/var/www/certbot
+      # Путь к сертификатам Certbot теперь использует переменную окружения
+      - certbot-certs:/etc/letsencrypt
+    depends_on:
+      - web
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    container_name: odoo_certbot
+    volumes:
+      - certbot-web:/var/www/certbot
+      # Путь к сертификатам Certbot теперь использует переменную окружения
+      - certbot-certs:/etc/letsencrypt
+    # Оставляем только команду автоматического обновления
+    entrypoint: |
+      /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $!; done;'
+    restart: unless-stopped
+
+volumes:
+  odoo-web-data:
+  odoo-db-data:
+  certbot-web:
+  certbot-certs:
