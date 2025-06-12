@@ -13,6 +13,7 @@ services:
       - "8069:8069"
     volumes:
       - odoo-web-data:/var/lib/odoo
+      - ./config/odoo.conf:/etc/odoo/odoo.conf 
     environment:
       - HOST=db
       - USER=odoo
