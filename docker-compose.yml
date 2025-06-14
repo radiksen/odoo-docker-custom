@@ -12,11 +12,12 @@ services:
     ports:
       - "8069:8069"
     volumes:
-      - odoo-web-data:/var/lib/odoo 
+      - odoo-web-data:/var/lib/odoo
     environment:
       - HOST=db
       - USER=odoo
-      - PASSWORD=${ODOO_DB_PASSWORD} # Используем переменную окружения
+      # Use the environment variable for the password
+      - PASSWORD=${ODOO_DB_PASSWORD}
     restart: always
 
   db:
@@ -25,7 +26,8 @@ services:
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=odoo
-      - POSTGRES_PASSWORD=${ODOO_DB_PASSWORD} # Используем переменную окружения
+      # Use the environment variable for the password
+      - POSTGRES_PASSWORD=${ODOO_DB_PASSWORD}
     volumes:
       - odoo-db-data:/var/lib/postgresql/data
     restart: always
@@ -37,10 +39,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # ВАЖНО: Сюда мы пока не передаем переменные, потому что они будут в default.conf
+      # Mount the main Nginx configuration file
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # Volume for Certbot's ACME challenge files
       - certbot-web:/var/www/certbot
-      # Путь к сертификатам Certbot теперь использует переменную окружения
+      # Volume for Let's Encrypt certificates
       - certbot-certs:/etc/letsencrypt
     depends_on:
       - web
@@ -51,9 +54,8 @@ services:
     container_name: odoo_certbot
     volumes:
       - certbot-web:/var/www/certbot
-      # Путь к сертификатам Certbot теперь использует переменную окружения
       - certbot-certs:/etc/letsencrypt
-    # Оставляем только команду автоматического обновления
+    # This entrypoint command runs a loop to renew certificates automatically every 12 hours.
     entrypoint: |
       /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $!; done;'
     restart: unless-stopped
