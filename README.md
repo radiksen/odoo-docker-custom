@@ -1,5 +1,5 @@
 # Odoo 18 Docker Custom Setup
-
+![Screen Odoo](https://github.com/radiksen/odoo18-docker-custom/blob/main/Screenshot%202025-06-18%20172824.png)
 A customized Docker environment for deploying Odoo 18 with a custom addons path and Caddy for automatic HTTPS.
 
 ## Features
