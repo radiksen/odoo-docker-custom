@@ -1,69 +1,59 @@
 #!/bin/bash
 set -e
 
-echo "------------------------------"
-echo "     Odoo 18 Setup Script     "
-echo "------------------------------"
+# --- User input ---
+read -p "Domain (e.g., example.com): " YOUR_DOMAIN
+read -p "Email for Let's Encrypt: " YOUR_EMAIL
+read -p "PostgreSQL password for Odoo: " ODOO_DB_PASSWORD
+read -p "Odoo master password: " ODOO_MASTER_PASSWORD
 
-# --- Collect user input ---
-read -p "🌐 Enter your domain (e.g., example.com): " YOUR_DOMAIN
-read -p "📧 Enter email for Let's Encrypt: " YOUR_EMAIL
-read -p "🔐 Enter PostgreSQL password for Odoo: " ODOO_DB_PASSWORD
-read -p "🛡️  Enter Odoo master password: " ODOO_MASTER_PASSWORD
-
-# --- Check for empty values ---
+# --- Check input ---
 if [[ -z "$YOUR_DOMAIN" || -z "$YOUR_EMAIL" || -z "$ODOO_DB_PASSWORD" || -z "$ODOO_MASTER_PASSWORD" ]]; then
-  echo "❌ All fields are required. Exiting."
+  echo "All fields are required. Exiting."
   exit 1
 fi
 
-# --- Create .env file with environment variables ---
-echo "📄 Creating .env file..."
+# --- Create .env file ---
 cat > .env <<EOF
 YOUR_DOMAIN=${YOUR_DOMAIN}
 ODOO_DB_PASSWORD=${ODOO_DB_PASSWORD}
 POSTGRES_PASSWORD=${ODOO_DB_PASSWORD}
 EOF
 
-# --- Generate Odoo configuration file ---
-echo "⚙️  Generating config/odoo.conf..."
+# --- Create Odoo config ---
 mkdir -p config
 cat > config/odoo.conf <<EOF
 [options]
 admin_passwd = ${ODOO_MASTER_PASSWORD}
-
 db_host = db
 db_port = 5432
 db_user = odoo
 db_password = ${ODOO_DB_PASSWORD}
-
 addons_path = /mnt/extra-addons
-
 proxy_mode = True
 EOF
 
-# --- Generate Nginx config from template ---
-echo "🧩 Preparing Nginx config..."
+# --- Generate Nginx config ---
 mkdir -p nginx
 if [ ! -f nginx/default.conf.template ]; then
-  echo "⚠️  Template nginx/default.conf.template not found. Copying current default.conf as template..."
-  cp nginx/default.conf nginx/default.conf.template
+  echo "Missing nginx/default.conf.template"
+  exit 1
+fi
+if ! grep -q '\${YOUR_DOMAIN}' nginx/default.conf.template; then
+  echo "Template must contain \${YOUR_DOMAIN}"
+  exit 1
 fi
 envsubst '\$YOUR_DOMAIN' < nginx/default.conf.template > nginx/default.conf
 
-# --- Start initial containers (Odoo, DB, Nginx) ---
-echo "🚀 Starting containers (initial phase)..."
+# --- Start services ---
 docker-compose down -v
 docker-compose up -d --build
 
-# --- Wait and stop Nginx before requesting SSL ---
-echo "⏳ Waiting for Nginx to fully start..."
+# --- Stop Nginx for certbot ---
 sleep 10
-echo "🛑 Stopping Nginx before Certbot..."
 docker-compose stop nginx
 
-# --- Request SSL certificate from Let's Encrypt ---
-echo "🔒 Requesting SSL certificate from Let's Encrypt..."
+# --- Run certbot ---
 docker-compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
   --email "${YOUR_EMAIL}" \
@@ -71,11 +61,7 @@ docker-compose run --rm certbot certonly \
   --no-eff-email \
   -d "${YOUR_DOMAIN}"
 
-# --- Restart all services with SSL in place ---
-echo "🔁 Restarting all containers with SSL enabled..."
+# --- Restart all ---
 docker-compose up -d
 
-# --- Done ---
-echo "✅ Setup complete!"
-echo "🌍 Your Odoo is available at: https://${YOUR_DOMAIN}"
-echo "🔄 Certbot will automatically renew SSL certificates."
+echo "Done. Odoo is running at https://${YOUR_DOMAIN}"
