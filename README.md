@@ -36,9 +36,10 @@ A customized Docker environment for deploying Odoo 18 with a custom addons path 
 ## Usage
 
 1.  **Start the services:**
-    Run the following command to build and start all containers in the background:
+    Run the following command to build and start all in the background:
     ```bash
-    docker-compose up -d
+    chmod +x start-odoo.sh
+./start-odoo.sh
     ```
 
 2.  **Access Odoo:**
