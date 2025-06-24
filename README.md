@@ -39,7 +39,7 @@ A customized Docker environment for deploying Odoo 18 with a custom addons path 
     Run the following command to build and start all in the background:
     ```bash
     chmod +x start-odoo.sh
-./start-odoo.sh
+    ./start-odoo.sh
     ```
 
 2.  **Access Odoo:**
